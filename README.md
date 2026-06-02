@@ -18,7 +18,11 @@ This repo is set up for Cloudflare Workers.
 wrangler deploy
 ```
 
-The deploy entry is `worker.js`, configured in `wrangler.jsonc`. Because this repository is public, the Worker serves `index.html` and proxies `src/main.js` plus `src/styles.css` from GitHub raw URLs.
+The deploy entry is `worker.js`, configured in `wrangler.jsonc`. Because this repository is public, the Worker serves the app shell and proxies `/src/*.js` plus `/src/*.css` from GitHub raw URLs.
+
+## Assets
+
+Character art is based on `2D Top Down Character by RgsDev` by Raphael Goncalves (`@rgs_dev`). The included license allows public-domain/free personal or commercial use; credit is appreciated by the author.
 
 ## Notes
 
