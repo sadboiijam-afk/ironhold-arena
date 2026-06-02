@@ -1,4 +1,4 @@
-import Phaser from "https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.esm.js";
+import * as Phaser from "https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.esm.js";
 
 const ARENA = { w: 1040, h: 720 };
 const CD = { basic: 0.34, dash: 2.8, area: 5.8 };
