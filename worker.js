@@ -11,7 +11,27 @@ const INDEX = `<!doctype html>
   <body>
     <div id="app">
       <div id="game-root"></div>
-      <div id="hud-root"></div>
+      <div id="hud-root" class="hud">
+        <section class="hud-top">
+          <div class="health-panel" aria-label="Player health">
+            <div class="health-meta"><span>Health</span><strong data-hp-text>120 / 120</strong></div>
+            <div class="health-track"><div class="health-fill" data-hp-fill></div></div>
+          </div>
+          <div class="stat-stack">
+            <div class="stat"><span>Wave</span><strong data-wave>1</strong></div>
+            <div class="stat"><span>Gold</span><strong data-gold>0</strong></div>
+          </div>
+        </section>
+        <section class="skill-bar" aria-label="Skills">
+          <div class="skill" data-skill="basic"><span class="skill-key">J</span><strong>Strike</strong><span class="skill-cooldown"></span><span class="skill-mask"></span></div>
+          <div class="skill" data-skill="dash"><span class="skill-key">Space</span><strong>Dash</strong><span class="skill-cooldown"></span><span class="skill-mask"></span></div>
+          <div class="skill" data-skill="area"><span class="skill-key">Q / K</span><strong>Cleave</strong><span class="skill-cooldown"></span><span class="skill-mask"></span></div>
+        </section>
+        <div class="toast" data-toast></div>
+        <div class="defeat hidden" data-defeat>
+          <div><h1>Defeated</h1><p>The arena holds. Try another run.</p><button type="button" data-restart>Restart</button></div>
+        </div>
+      </div>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>
