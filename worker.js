@@ -45,7 +45,7 @@ export default {
       return reply(INDEX, "text/html; charset=utf-8");
     }
 
-    if (url.pathname === "/src/main.js" || url.pathname === "/src/styles.css") {
+    if (url.pathname.startsWith("/src/") && (url.pathname.endsWith(".js") || url.pathname.endsWith(".css"))) {
       const upstream = await fetch(`${REPO_RAW}${url.pathname}`, {
         headers: { "user-agent": "ironhold-arena-worker" },
       });
@@ -69,7 +69,7 @@ function reply(body, contentType) {
   return new Response(body, {
     headers: {
       "content-type": contentType,
-      "cache-control": "public, max-age=60",
+      "cache-control": "no-store",
     },
   });
 }
