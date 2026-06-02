@@ -18,7 +18,7 @@ This repo is set up for Cloudflare Workers.
 wrangler deploy
 ```
 
-The deploy entry is `worker.js`, configured in `wrangler.jsonc`. The Worker serves `index.html` and loads the game source from `src/main.js` plus `src/styles.css`.
+The deploy entry is `worker.js`, configured in `wrangler.jsonc`. Because this repository is public, the Worker serves `index.html` and proxies `src/main.js` plus `src/styles.css` from GitHub raw URLs.
 
 ## Notes
 
