@@ -312,14 +312,7 @@ class ArenaScene extends Phaser.Scene {
     for (const item of state.text) {
       let label = this.labels.get(item.id);
       if (!label) {
-        label = this.add.text(item.x, item.y, item.text, {
-          color: item.color,
-          fontFamily: "Georgia, serif",
-          fontSize: "18px",
-          fontStyle: "bold",
-          stroke: "#1a0d0f",
-          strokeThickness: 3,
-        }).setOrigin(0.5);
+        label = this.add.text(item.x, item.y, item.text, { color: item.color, fontFamily: "Georgia, serif", fontSize: "18px", fontStyle: "bold", stroke: "#1a0d0f", strokeThickness: 3 }).setOrigin(0.5);
         this.labels.set(item.id, label);
       }
       const age = state.t - item.born;
@@ -396,12 +389,12 @@ function renderHud() {
 }
 
 new Phaser.Game({
-  type: Phaser.AUTO,
-  parent: document.querySelector("#game-root"),
+  type: Phaser.CANVAS,
+  parent: "game-root",
   width: 1280,
   height: 760,
   backgroundColor: "#100d12",
   scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
   render: { antialias: true },
-  scene: [new ArenaScene()],
+  scene: ArenaScene,
 });
