@@ -3,11 +3,50 @@ import { PLAYER_SPRITE } from "./player-sprite.js";
 
 const ARENA = { w: 1040, h: 720 };
 const CD = { basic: 0.31, dash: 2.35, area: 5.4 };
+const UPGRADE_POOL = [
+  {
+    id: "blade",
+    title: "Sharpened Blade",
+    text: "+6 strike damage",
+    apply: (p) => { p.strikeDamage += 6; },
+  },
+  {
+    id: "vitality",
+    title: "Iron Vigor",
+    text: "+24 max health and heal 24",
+    apply: (p) => { p.maxHp += 24; p.hp = Math.min(p.maxHp, p.hp + 24); },
+  },
+  {
+    id: "boots",
+    title: "Swift Greaves",
+    text: "+18 movement speed",
+    apply: (p) => { p.speed += 18; },
+  },
+  {
+    id: "dash",
+    title: "Meteor Dash",
+    text: "+8 dash impact damage",
+    apply: (p) => { p.dashDamage += 8; },
+  },
+  {
+    id: "cleave",
+    title: "Wider Cleave",
+    text: "+18 cleave radius and +8 damage",
+    apply: (p) => { p.areaRadius += 18; p.areaDamage += 8; },
+  },
+  {
+    id: "recovery",
+    title: "Battle Recovery",
+    text: "Heal 16 after every cleared wave",
+    apply: (p) => { p.waveHeal += 16; },
+  },
+];
 const keys = new Set();
 const queued = { basic: false, dash: false, area: false, restart: false };
 let state;
 let nextId = 0;
 let scene;
+let pendingUpgrades = [];
 
 window.addEventListener("keydown", (event) => {
   if (event.repeat) return;
@@ -25,6 +64,12 @@ window.addEventListener("pointerdown", (event) => {
 document.querySelector("[data-restart]")?.addEventListener("click", () => {
   reset();
   scene?.clearObjects();
+});
+
+document.querySelector("[data-upgrades]")?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-upgrade]");
+  if (!button || state?.phase !== "upgrade") return;
+  chooseUpgrade(button.dataset.upgrade);
 });
 
 function reset() {
@@ -49,6 +94,11 @@ function reset() {
       maxHp: 120,
       radius: 24,
       speed: 238,
+      strikeDamage: 28,
+      dashDamage: 18,
+      areaDamage: 44,
+      areaRadius: 148,
+      waveHeal: 0,
       face: { x: 1, y: 0 },
       hurt: 0,
       attackUntil: 0,
@@ -126,6 +176,7 @@ function step(dt) {
     if (state.t >= state.nextWaveAt) startWave();
     return;
   }
+  if (state.phase === "upgrade") return;
   movePlayer(dt, input);
   moveEnemies(dt);
   separateEnemies(dt);
@@ -136,9 +187,7 @@ function step(dt) {
     state.message = "Defeated";
   }
   if (state.phase === "play" && state.enemies.length === 0) {
-    state.phase = "wait";
-    state.nextWaveAt = state.t + 2.1;
-    state.message = `Wave ${state.wave} cleared`;
+    offerUpgrades();
   }
 }
 
@@ -148,7 +197,7 @@ function movePlayer(dt, input) {
   if (input.basic && state.t >= p.basic) {
     p.basic = state.t + CD.basic;
     p.attackUntil = state.t + 0.16;
-    strike(p.x + p.face.x * 44, p.y + p.face.y * 44, 86, 28, p.face);
+    strike(p.x + p.face.x * 44, p.y + p.face.y * 44, 86, p.strikeDamage, p.face);
     fx("slash", p.x + p.face.x * 42, p.y + p.face.y * 42, Math.atan2(p.face.y, p.face.x), 0.26);
   }
   if (input.area && state.t >= p.area) {
@@ -157,7 +206,7 @@ function movePlayer(dt, input) {
     fx("ring", p.x, p.y, 0, 0.42);
     for (const enemy of state.enemies) {
       const away = norm({ x: enemy.x - p.x, y: enemy.y - p.y });
-      if (dist(enemy, p) <= 148 + enemy.radius) damage(enemy, 44, away, 190, true);
+      if (dist(enemy, p) <= p.areaRadius + enemy.radius) damage(enemy, p.areaDamage, away, 190, true);
     }
   }
   const dashing = state.t < p.dashUntil;
@@ -186,10 +235,43 @@ function dashStrike() {
     if (state.t < enemy.dashHitUntil) continue;
     if (dist(enemy, p) <= 58 + enemy.radius) {
       enemy.dashHitUntil = state.t + 0.35;
-      damage(enemy, 18, p.face, 150, false);
+      damage(enemy, p.dashDamage, p.face, 150, false);
       fx("spark", enemy.x, enemy.y - 6, 0, 0.22);
     }
   }
+}
+
+function offerUpgrades() {
+  const p = state.player;
+  if (p.waveHeal) {
+    p.hp = Math.min(p.maxHp, p.hp + p.waveHeal);
+    float(p.x, p.y - 58, `+${p.waveHeal}`, "#56d07f");
+  }
+  pendingUpgrades = pickUpgrades(3);
+  state.phase = "upgrade";
+  state.message = `Wave ${state.wave} cleared`;
+}
+
+function chooseUpgrade(id) {
+  const upgrade = pendingUpgrades.find((item) => item.id === id);
+  if (!upgrade) return;
+  upgrade.apply(state.player);
+  state.message = upgrade.title;
+  pendingUpgrades = [];
+  state.phase = "wait";
+  state.nextWaveAt = state.t + 0.9;
+  state.player.hp = Math.min(state.player.maxHp, state.player.hp + 8);
+  fx("ring", state.player.x, state.player.y, 0, 0.36);
+}
+
+function pickUpgrades(count) {
+  const pool = [...UPGRADE_POOL];
+  const picks = [];
+  while (picks.length < count && pool.length) {
+    const index = Math.floor(Math.random() * pool.length);
+    picks.push(pool.splice(index, 1)[0]);
+  }
+  return picks;
 }
 
 function moveEnemies(dt) {
@@ -495,9 +577,31 @@ function renderHud() {
     skill.querySelector(".skill-mask").style.height = `${(left / CD[key]) * 100}%`;
   }
   const toast = document.querySelector("[data-toast]");
-  toast.textContent = state.phase === "wait" ? `${state.message}. Next wave incoming...` : state.message;
+  toast.textContent = state.phase === "wait" ? `${state.message}. Next wave incoming...` : state.phase === "upgrade" ? "" : state.message;
   toast.classList.toggle("visible", Boolean(toast.textContent));
   document.querySelector("[data-defeat]").classList.toggle("hidden", state.phase !== "dead");
+  renderUpgrades();
+}
+
+function renderUpgrades() {
+  const panel = document.querySelector("[data-upgrade-panel]");
+  const list = document.querySelector("[data-upgrades]");
+  if (!panel || !list) return;
+  const open = state.phase === "upgrade";
+  panel.classList.toggle("hidden", !open);
+  if (!open) {
+    list.replaceChildren();
+    return;
+  }
+  if (list.children.length === pendingUpgrades.length) return;
+  list.replaceChildren(...pendingUpgrades.map((upgrade) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "upgrade-card";
+    button.dataset.upgrade = upgrade.id;
+    button.innerHTML = `<strong>${upgrade.title}</strong><span>${upgrade.text}</span>`;
+    return button;
+  }));
 }
 
 new Phaser.Game({
