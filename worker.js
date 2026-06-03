@@ -65,11 +65,33 @@ export default {
   },
 };
 
+const SECURITY_HEADERS = {
+  "content-security-policy": [
+    "default-src 'self'",
+    "script-src 'self' https://cdn.jsdelivr.net",
+    "style-src 'self'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self' https://raw.githubusercontent.com",
+    "media-src 'none'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+  ].join("; "),
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "no-referrer",
+  "permissions-policy": "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+  "x-frame-options": "DENY",
+  "cross-origin-opener-policy": "same-origin",
+};
+
 function reply(body, contentType) {
   return new Response(body, {
     headers: {
       "content-type": contentType,
       "cache-control": "no-store",
+      ...SECURITY_HEADERS,
     },
   });
 }
