@@ -41,6 +41,16 @@ body {
 .defeat h1 { margin: 0 0 8px; font-family: Georgia, "Times New Roman", serif; font-size: 38px; line-height: 1; }
 .defeat p { margin: 0 0 18px; color: #cdbdad; }
 .defeat button { width: 100%; min-height: 42px; border: 0; background: #d88742; color: #1b1010; cursor: pointer; font-weight: 900; text-transform: uppercase; }
+.upgrade-panel { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; background: radial-gradient(circle at 50% 42%, rgba(98, 51, 30, 0.36), rgba(8, 5, 7, 0.72) 62%); pointer-events: auto; }
+.upgrade-panel.hidden { display: none; }
+.upgrade-box { width: min(720px, calc(100vw - 28px)); border: 1px solid rgba(255, 208, 132, 0.28); background: rgba(20, 12, 14, 0.94); padding: 20px; box-shadow: 0 26px 70px rgba(0, 0, 0, 0.42); }
+.upgrade-box h2 { margin: 0 0 6px; color: #fff4dc; font-family: Georgia, "Times New Roman", serif; font-size: 34px; line-height: 1; text-align: center; }
+.upgrade-box p { margin: 0 0 18px; color: #cdbdad; text-align: center; }
+.upgrade-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.upgrade-card { min-height: 138px; border: 1px solid rgba(255, 208, 132, 0.28); background: linear-gradient(180deg, rgba(72, 39, 27, 0.92), rgba(32, 18, 18, 0.94)); color: #f7efe2; cursor: pointer; padding: 16px 12px; text-align: left; transition: border-color 140ms ease, transform 140ms ease, background 140ms ease; }
+.upgrade-card:hover, .upgrade-card:focus-visible { border-color: rgba(255, 215, 141, 0.82); background: linear-gradient(180deg, rgba(108, 58, 33, 0.96), rgba(42, 22, 20, 0.98)); outline: none; transform: translateY(-2px); }
+.upgrade-card strong { display: block; color: #ffe4a8; font-family: Georgia, "Times New Roman", serif; font-size: 20px; line-height: 1.05; }
+.upgrade-card span { display: block; margin-top: 10px; color: #d9c8b2; font-size: 14px; line-height: 1.35; }
 @media (max-width: 640px) {
   .hud-top { top: 10px; left: 10px; right: 10px; gap: 8px; }
   .health-panel { width: min(248px, 62vw); padding: 10px; }
@@ -51,4 +61,8 @@ body {
   .skill strong { font-size: 14px; }
   .skill-key { font-size: 10px; }
   .toast { top: 76px; font-size: 15px; }
+  .upgrade-box { padding: 14px; }
+  .upgrade-box h2 { font-size: 28px; }
+  .upgrade-list { grid-template-columns: 1fr; gap: 8px; }
+  .upgrade-card { min-height: 88px; }
 }
