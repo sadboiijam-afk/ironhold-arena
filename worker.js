@@ -1,4 +1,4 @@
-const REPO_RAW = "https://raw.githubusercontent.com/sadboiijam-afk/ironhold-arena/828ef9072857247ec4196d27129a06c9bacc36da";
+const REPO_RAW = "https://raw.githubusercontent.com/sadboiijam-afk/ironhold-arena/cdd2681110ffb1e1a6ee88052d72e4e33f0938cb";
 
 const INDEX = `<!doctype html>
 <html lang="en">
@@ -28,6 +28,13 @@ const INDEX = `<!doctype html>
           <div class="skill" data-skill="area"><span class="skill-key">Q / K</span><strong>Cleave</strong><span class="skill-cooldown"></span><span class="skill-mask"></span></div>
         </section>
         <div class="toast" data-toast></div>
+        <div class="upgrade-panel hidden" data-upgrade-panel>
+          <div class="upgrade-box">
+            <h2>Choose an Upgrade</h2>
+            <p>Strengthen your warrior before the next wave.</p>
+            <div class="upgrade-list" data-upgrades></div>
+          </div>
+        </div>
         <div class="defeat hidden" data-defeat>
           <div><h1>Defeated</h1><p>The arena holds. Try another run.</p><button type="button" data-restart>Restart</button></div>
         </div>
