@@ -1,4 +1,4 @@
-const REPO_RAW = "https://raw.githubusercontent.com/sadboiijam-afk/ironhold-arena/b0ce53da704f45dc829b3949c9e4756787505324";
+const REPO_RAW = "https://raw.githubusercontent.com/sadboiijam-afk/ironhold-arena/828ef9072857247ec4196d27129a06c9bacc36da";
 
 const INDEX = `<!doctype html>
 <html lang="en">
