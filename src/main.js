@@ -2,7 +2,7 @@ import * as Phaser from "https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.
 import { PLAYER_SPRITE } from "./player-sprite.js";
 
 const ARENA = { w: 1040, h: 720 };
-const CD = { basic: 0.34, dash: 2.8, area: 5.8 };
+const CD = { basic: 0.31, dash: 2.35, area: 5.4 };
 const keys = new Set();
 const queued = { basic: false, dash: false, area: false, restart: false };
 let state;
@@ -36,6 +36,8 @@ function reset() {
     gold: 0,
     message: "",
     nextWaveAt: 0,
+    hitstop: 0,
+    shake: 0,
     player: {
       id: id("player"),
       kind: "player",
@@ -46,13 +48,15 @@ function reset() {
       hp: 120,
       maxHp: 120,
       radius: 24,
-      speed: 220,
+      speed: 238,
       face: { x: 1, y: 0 },
       hurt: 0,
+      attackUntil: 0,
       basic: 0,
       dash: 0,
       area: 0,
       dashUntil: 0,
+      invulnUntil: 0,
     },
     enemies: [],
     loot: [],
@@ -66,7 +70,7 @@ function startWave() {
   state.wave += 1;
   state.phase = "play";
   state.message = `Wave ${state.wave}`;
-  const count = 4 + Math.floor(state.wave * 1.45);
+  const count = 4 + Math.floor(state.wave * 1.35);
   for (let i = 0; i < count; i += 1) {
     const angle = (Math.PI * 2 * i) / count + state.wave * 0.42;
     const hp = 34 + state.wave * 7;
@@ -75,14 +79,18 @@ function startWave() {
       kind: "enemy",
       x: ARENA.w / 2 + Math.cos(angle) * ARENA.w * 0.46,
       y: ARENA.h / 2 + Math.sin(angle) * ARENA.h * 0.43,
+      vx: 0,
+      vy: 0,
       hp,
       maxHp: hp,
       radius: 19,
-      speed: 88 + Math.min(52, state.wave * 5),
+      speed: 86 + Math.min(58, state.wave * 5),
       damage: 7 + Math.floor(state.wave * 0.75),
-      range: 48,
-      attackAt: 0.5 + i * 0.05,
-      attackCd: 0.78,
+      range: 50,
+      attackAt: 0.6 + i * 0.05,
+      attackCd: 0.92,
+      windupUntil: 0,
+      dashHitUntil: 0,
       face: { x: -Math.cos(angle), y: -Math.sin(angle) },
       hurt: 0,
     });
@@ -104,9 +112,15 @@ function step(dt) {
     reset();
     scene.clearObjects();
   }
+  if (state.hitstop > 0) {
+    state.hitstop = Math.max(0, state.hitstop - dt);
+    state.t += dt * 0.18;
+    return;
+  }
   state.t += dt;
+  state.shake = Math.max(0, state.shake - dt * 4.2);
   state.text = state.text.filter((item) => state.t - item.born < item.ttl);
-  state.fx = state.fx.filter((item) => state.t - item.born < 0.42);
+  state.fx = state.fx.filter((item) => state.t - item.born < item.ttl);
   if (state.phase === "dead") return;
   if (state.phase === "wait") {
     if (state.t >= state.nextWaveAt) startWave();
@@ -114,6 +128,7 @@ function step(dt) {
   }
   movePlayer(dt, input);
   moveEnemies(dt);
+  separateEnemies(dt);
   collectLoot();
   if (state.player.hp <= 0) {
     state.player.hp = 0;
@@ -132,72 +147,146 @@ function movePlayer(dt, input) {
   if (input.move.x || input.move.y) p.face = norm(input.move);
   if (input.basic && state.t >= p.basic) {
     p.basic = state.t + CD.basic;
-    strike(p.x + p.face.x * 38, p.y + p.face.y * 38, 72, 26, p.face);
-    fx("slash", p.x + p.face.x * 38, p.y + p.face.y * 38, Math.atan2(p.face.y, p.face.x));
+    p.attackUntil = state.t + 0.16;
+    strike(p.x + p.face.x * 44, p.y + p.face.y * 44, 86, 28, p.face);
+    fx("slash", p.x + p.face.x * 42, p.y + p.face.y * 42, Math.atan2(p.face.y, p.face.x), 0.26);
   }
   if (input.area && state.t >= p.area) {
     p.area = state.t + CD.area;
-    fx("ring", p.x, p.y, 0);
+    state.shake = Math.max(state.shake, 0.42);
+    fx("ring", p.x, p.y, 0, 0.42);
     for (const enemy of state.enemies) {
       const away = norm({ x: enemy.x - p.x, y: enemy.y - p.y });
-      if (dist(enemy, p) <= 132 + enemy.radius) damage(enemy, 42, away, 160);
+      if (dist(enemy, p) <= 148 + enemy.radius) damage(enemy, 44, away, 190, true);
     }
   }
   const dashing = state.t < p.dashUntil;
   if (input.dash && state.t >= p.dash) {
     const d = input.move.x || input.move.y ? norm(input.move) : p.face;
-    p.vx = d.x * 620;
-    p.vy = d.y * 620;
+    p.face = d;
+    p.vx = d.x * 720;
+    p.vy = d.y * 720;
     p.dash = state.t + CD.dash;
-    p.dashUntil = state.t + 0.18;
-    fx("dash", p.x, p.y, 0);
+    p.dashUntil = state.t + 0.2;
+    p.invulnUntil = state.t + 0.26;
+    state.shake = Math.max(state.shake, 0.22);
+    fx("dash", p.x, p.y, 0, 0.34);
   } else if (!dashing) {
     p.vx = input.move.x * p.speed;
     p.vy = input.move.y * p.speed;
   }
   p.x = clamp(p.x + p.vx * dt, 70, ARENA.w - 70);
   p.y = clamp(p.y + p.vy * dt, 80, ARENA.h - 80);
+  if (dashing) dashStrike();
+}
+
+function dashStrike() {
+  const p = state.player;
+  for (const enemy of state.enemies) {
+    if (state.t < enemy.dashHitUntil) continue;
+    if (dist(enemy, p) <= 58 + enemy.radius) {
+      enemy.dashHitUntil = state.t + 0.35;
+      damage(enemy, 18, p.face, 150, false);
+      fx("spark", enemy.x, enemy.y - 6, 0, 0.22);
+    }
+  }
 }
 
 function moveEnemies(dt) {
   const p = state.player;
   for (const enemy of state.enemies) {
     const toPlayer = norm({ x: p.x - enemy.x, y: p.y - enemy.y });
+    const gap = dist(enemy, p);
     enemy.face = toPlayer;
-    if (dist(enemy, p) > enemy.range) {
+    if (enemy.hurt > state.t) {
+      enemy.x = clamp(enemy.x + enemy.vx * dt, 42, ARENA.w - 42);
+      enemy.y = clamp(enemy.y + enemy.vy * dt, 58, ARENA.h - 58);
+      enemy.vx *= 0.9;
+      enemy.vy *= 0.9;
+      continue;
+    }
+    if (gap > enemy.range) {
+      enemy.windupUntil = 0;
       enemy.x = clamp(enemy.x + toPlayer.x * enemy.speed * dt, 42, ARENA.w - 42);
       enemy.y = clamp(enemy.y + toPlayer.y * enemy.speed * dt, 58, ARENA.h - 58);
-    } else if (state.t >= enemy.attackAt) {
+    } else if (state.t >= enemy.attackAt && !enemy.windupUntil) {
+      enemy.windupUntil = state.t + 0.36;
+      enemy.attackAt = enemy.windupUntil;
+      fx("warn", enemy.x, enemy.y, 0, 0.36);
+    } else if (enemy.windupUntil && state.t >= enemy.windupUntil) {
+      enemy.windupUntil = 0;
       enemy.attackAt = state.t + enemy.attackCd;
-      p.hp -= enemy.damage;
-      p.hurt = state.t + 0.12;
-      float(p.x, p.y - 34, `-${enemy.damage}`, "#ff6b5c");
+      if (dist(enemy, p) <= enemy.range + 10 && state.t >= p.invulnUntil) {
+        p.hp -= enemy.damage;
+        p.hurt = state.t + 0.14;
+        state.shake = Math.max(state.shake, 0.24);
+        float(p.x, p.y - 34, `-${enemy.damage}`, "#ff6b5c");
+      }
     }
   }
   state.enemies = state.enemies.filter((enemy) => {
     if (enemy.hp > 0) return true;
-    if (Math.random() <= 0.68) state.loot.push({ id: id("loot"), x: enemy.x, y: enemy.y, value: 2 + Math.ceil(Math.random() * 5), born: state.t });
+    fx("pop", enemy.x, enemy.y, 0, 0.32);
+    if (Math.random() <= 0.75) state.loot.push({ id: id("loot"), x: enemy.x, y: enemy.y, value: 2 + Math.ceil(Math.random() * 5), born: state.t });
     return false;
   });
 }
 
-function strike(x, y, radius, amount, facing) {
-  for (const enemy of state.enemies) {
-    if (dist(enemy, { x, y }) <= radius + enemy.radius) damage(enemy, amount, facing, 90);
+function separateEnemies(dt) {
+  for (let i = 0; i < state.enemies.length; i += 1) {
+    for (let j = i + 1; j < state.enemies.length; j += 1) {
+      const a = state.enemies[i];
+      const b = state.enemies[j];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const gap = Math.hypot(dx, dy) || 1;
+      const min = a.radius + b.radius + 8;
+      if (gap >= min) continue;
+      const push = (min - gap) * 0.5;
+      const nx = dx / gap;
+      const ny = dy / gap;
+      a.x = clamp(a.x - nx * push * dt * 9, 42, ARENA.w - 42);
+      a.y = clamp(a.y - ny * push * dt * 9, 58, ARENA.h - 58);
+      b.x = clamp(b.x + nx * push * dt * 9, 42, ARENA.w - 42);
+      b.y = clamp(b.y + ny * push * dt * 9, 58, ARENA.h - 58);
+    }
   }
 }
 
-function damage(enemy, amount, direction, knockback) {
+function strike(x, y, radius, amount, facing) {
+  let hits = 0;
+  for (const enemy of state.enemies) {
+    if (dist(enemy, { x, y }) <= radius + enemy.radius) {
+      hits += 1;
+      damage(enemy, amount, facing, 120, false);
+    }
+  }
+  if (hits) {
+    state.hitstop = Math.min(0.07, 0.035 + hits * 0.012);
+    state.shake = Math.max(state.shake, 0.18 + hits * 0.04);
+  }
+}
+
+function damage(enemy, amount, direction, knockback, heavy) {
   enemy.hp -= amount;
-  enemy.hurt = state.t + 0.13;
-  enemy.x = clamp(enemy.x + direction.x * knockback * 0.12, 42, ARENA.w - 42);
-  enemy.y = clamp(enemy.y + direction.y * knockback * 0.12, 58, ARENA.h - 58);
-  float(enemy.x, enemy.y - 28, String(amount), "#f8d98a");
+  enemy.hurt = state.t + (heavy ? 0.18 : 0.13);
+  enemy.windupUntil = 0;
+  enemy.vx = direction.x * knockback;
+  enemy.vy = direction.y * knockback;
+  enemy.x = clamp(enemy.x + direction.x * knockback * 0.08, 42, ARENA.w - 42);
+  enemy.y = clamp(enemy.y + direction.y * knockback * 0.08, 58, ARENA.h - 58);
+  float(enemy.x, enemy.y - 28, String(amount), heavy ? "#ffffff" : "#f8d98a");
+  fx("spark", enemy.x, enemy.y - 8, 0, 0.2);
 }
 
 function collectLoot() {
   const p = state.player;
   state.loot = state.loot.filter((drop) => {
+    const magnet = norm({ x: p.x - drop.x, y: p.y - drop.y });
+    if (dist(drop, p) < 96) {
+      drop.x += magnet.x * 180 * 0.016;
+      drop.y += magnet.y * 180 * 0.016;
+    }
     if (dist(drop, p) > 38) return true;
     state.gold += drop.value;
     state.message = `+${drop.value} gold`;
@@ -211,7 +300,7 @@ function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 function norm(v) { const l = Math.hypot(v.x, v.y) || 1; return { x: v.x / l, y: v.y / l }; }
 function float(x, y, text, color) { state.text.push({ id: id("text"), x, y, text, color, born: state.t, ttl: 0.72 }); }
-function fx(type, x, y, angle) { state.fx.push({ id: id("fx"), type, x, y, angle, born: state.t }); }
+function fx(type, x, y, angle, ttl = 0.42) { state.fx.push({ id: id("fx"), type, x, y, angle, born: state.t, ttl }); }
 
 class ArenaScene extends Phaser.Scene {
   constructor() {
@@ -266,7 +355,9 @@ class ArenaScene extends Phaser.Scene {
     this.syncFx();
     const zoom = Math.min(this.scale.width / 1160, this.scale.height / 760);
     this.cameras.main.setZoom(Phaser.Math.Clamp(zoom, 0.62, 1.05));
-    this.cameras.main.centerOn(ARENA.w / 2, ARENA.h / 2);
+    const sx = (Math.random() - 0.5) * 18 * state.shake;
+    const sy = (Math.random() - 0.5) * 12 * state.shake;
+    this.cameras.main.centerOn(ARENA.w / 2 + sx, ARENA.h / 2 + sy);
   }
 
   syncUnit(unit) {
@@ -282,15 +373,27 @@ class ArenaScene extends Phaser.Scene {
       this.bars.set(unit.id, bar);
     }
     c.setPosition(unit.x, unit.y).setDepth(unit.y * 10 + (unit.kind === "player" ? 6 : 0));
+    const shadow = c.list[0];
     const sprite = c.list[1];
-    sprite.setTint(unit.hurt > state.t ? 0xffffff : unit.kind === "player" ? 0xffffff : 0xf05f45);
+    const moving = Math.hypot(unit.vx || 0, unit.vy || 0) > 12 || (unit.kind === "enemy" && unit.hurt <= state.t && !unit.windupUntil);
+    const seed = Number(unit.id.split("-").pop()) || 1;
+    const bob = moving ? Math.sin(state.t * (unit.kind === "player" ? 14 : 9) + seed) * 4 : Math.sin(state.t * 4 + seed) * 1.4;
+    const lean = unit.kind === "player" ? Phaser.Math.Clamp((unit.vx || 0) / 820, -0.1, 0.1) : Phaser.Math.Clamp(unit.face.x * 0.08, -0.08, 0.08);
+    sprite.setPosition(0, bob);
+    sprite.setRotation(unit.attackUntil > state.t ? -unit.face.x * 0.22 : lean);
+    if (unit.kind === "player") sprite.setScale(0.48 + (state.t < unit.dashUntil ? 0.08 : 0), 0.48 - (state.t < unit.dashUntil ? 0.03 : 0));
+    if (unit.kind === "enemy") sprite.setScale(unit.windupUntil > state.t ? 1.16 : unit.hurt > state.t ? 0.94 : 1);
+    shadow.setScale(moving ? 1.08 : 1, moving ? 0.9 : 1).setAlpha(unit.kind === "player" && state.t < unit.invulnUntil ? 0.28 : 0.44);
+    const tint = unit.hurt > state.t ? 0xffffff : unit.windupUntil > state.t ? 0xffd166 : unit.kind === "player" ? 0xffffff : 0xf05f45;
+    sprite.setTint(tint).setAlpha(unit.kind === "player" && state.t < unit.invulnUntil ? 0.72 + Math.sin(state.t * 42) * 0.18 : 1);
     sprite.setFlipX(unit.face.x < -0.1);
     const bar = this.bars.get(unit.id);
     bar.clear();
     if (unit.kind === "enemy" || unit.hp < unit.maxHp) {
       const pct = Phaser.Math.Clamp(unit.hp / unit.maxHp, 0, 1);
-      bar.fillStyle(0x1d1516, 0.88).fillRoundedRect(-24, -48, 48, 5, 2);
-      bar.fillStyle(unit.kind === "player" ? 0x56d07f : 0xff7b54, 1).fillRoundedRect(-23, -47, 46 * pct, 3, 2);
+      const y = unit.kind === "player" ? -54 : -48;
+      bar.fillStyle(0x1d1516, 0.88).fillRoundedRect(-24, y, 48, 5, 2);
+      bar.fillStyle(unit.kind === "player" ? 0x56d07f : 0xff7b54, 1).fillRoundedRect(-23, y + 1, 46 * pct, 3, 2);
     }
   }
 
@@ -302,7 +405,7 @@ class ArenaScene extends Phaser.Scene {
         s = this.add.image(drop.x, drop.y, "gold");
         this.drops.set(drop.id, s);
       }
-      s.setPosition(drop.x, drop.y + Math.sin((state.t - drop.born) * 7) * 4).setDepth(drop.y * 10 + 2);
+      s.setPosition(drop.x, drop.y + Math.sin((state.t - drop.born) * 7) * 4).setRotation(state.t * 2.5).setDepth(drop.y * 10 + 2);
     }
     for (const [id, s] of this.drops) if (!live.has(id)) { s.destroy(); this.drops.delete(id); }
   }
@@ -316,7 +419,7 @@ class ArenaScene extends Phaser.Scene {
         this.labels.set(item.id, label);
       }
       const age = state.t - item.born;
-      label.setPosition(item.x, item.y - age * 42).setAlpha(1 - age / item.ttl).setDepth(9000);
+      label.setPosition(item.x, item.y - age * 42).setAlpha(1 - age / item.ttl).setScale(1 + Math.max(0, 0.18 - age) * 1.3).setDepth(9000);
     }
     for (const [id, label] of this.labels) if (!live.has(id)) { label.destroy(); this.labels.delete(id); }
   }
@@ -325,9 +428,12 @@ class ArenaScene extends Phaser.Scene {
     for (const item of state.fx) {
       if (this.seenFx.has(item.id)) continue;
       this.seenFx.add(item.id);
-      if (item.type === "slash") this.tweenFx(this.add.image(item.x, item.y, "slash").setRotation(item.angle).setDepth(item.y * 10 + 30).setBlendMode(Phaser.BlendModes.ADD), 1.35, 180);
-      if (item.type === "ring") this.tweenFx(this.add.image(item.x, item.y, "ring").setDepth(item.y * 10 + 25).setBlendMode(Phaser.BlendModes.ADD), 2.6, 310);
-      if (item.type === "dash") this.tweenFx(this.add.image(item.x, item.y, "player").setScale(0.48).setTint(0x90d7ff).setAlpha(0.32).setDepth(item.y * 10 - 1), 1.4, 260);
+      if (item.type === "slash") this.tweenFx(this.add.image(item.x, item.y, "slash").setRotation(item.angle).setDepth(item.y * 10 + 30).setBlendMode(Phaser.BlendModes.ADD), 1.65, 190);
+      if (item.type === "ring") this.tweenFx(this.add.image(item.x, item.y, "ring").setDepth(item.y * 10 + 25).setBlendMode(Phaser.BlendModes.ADD), 3.0, 330);
+      if (item.type === "dash") this.tweenFx(this.add.image(item.x, item.y, "player").setScale(0.56).setTint(0x90d7ff).setAlpha(0.36).setDepth(item.y * 10 - 1), 1.6, 300);
+      if (item.type === "spark") this.tweenFx(this.add.image(item.x, item.y, "spark").setDepth(item.y * 10 + 35).setBlendMode(Phaser.BlendModes.ADD), 1.8, 170);
+      if (item.type === "warn") this.tweenFx(this.add.image(item.x, item.y, "warn").setDepth(item.y * 10 - 2).setAlpha(0.75), 1.2, 360);
+      if (item.type === "pop") this.tweenFx(this.add.image(item.x, item.y, "pop").setDepth(item.y * 10 + 20).setBlendMode(Phaser.BlendModes.ADD), 1.5, 260);
     }
   }
 
@@ -365,6 +471,12 @@ class ArenaScene extends Phaser.Scene {
     g.lineStyle(8, 0xffe1a6, 1).beginPath().arc(46, 46, 34, -0.9, 0.9).strokePath().lineStyle(3, 0xffffff, 0.9).beginPath().arc(46, 46, 26, -0.8, 0.72).strokePath().generateTexture("slash", 92, 92).destroy();
     g = this.make.graphics({ x: 0, y: 0 });
     g.lineStyle(5, 0xffc76b, 0.95).strokeCircle(64, 64, 48).lineStyle(2, 0xffffff, 0.6).strokeCircle(64, 64, 36).generateTexture("ring", 128, 128).destroy();
+    g = this.make.graphics({ x: 0, y: 0 });
+    g.fillStyle(0xfff1a8, 1).fillCircle(22, 22, 7).fillStyle(0xff8a3d, 0.75).fillCircle(22, 22, 15).generateTexture("spark", 44, 44).destroy();
+    g = this.make.graphics({ x: 0, y: 0 });
+    g.lineStyle(3, 0xffd166, 0.95).strokeCircle(32, 32, 22).lineStyle(1, 0xffffff, 0.45).strokeCircle(32, 32, 14).generateTexture("warn", 64, 64).destroy();
+    g = this.make.graphics({ x: 0, y: 0 });
+    g.fillStyle(0xff7b54, 0.45).fillCircle(32, 32, 24).lineStyle(2, 0xffe1a6, 0.8).strokeCircle(32, 32, 20).generateTexture("pop", 64, 64).destroy();
   }
 }
 
